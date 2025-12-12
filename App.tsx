@@ -49,15 +49,25 @@ const App: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
   const [tempApiKey, setTempApiKey] = useState('');
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+  const [isEnvKey, setIsEnvKey] = useState(false); // Track if using system key
 
   // Load API Key on Mount
   useEffect(() => {
+    // 1. Check for Environment Variable (AI Studio / Dev)
+    const envKey = process.env.API_KEY;
+    if (envKey) {
+      setApiKey(envKey);
+      setIsEnvKey(true);
+      return; 
+    }
+
+    // 2. Check Local Storage (GitHub Pages / Persistence)
     const storedKey = localStorage.getItem('gemini_api_key');
     if (storedKey) {
       setApiKey(storedKey);
       setTempApiKey(storedKey);
     } else {
-      // Open modal if no key is found
+      // 3. No key found, prompt user
       setIsKeyModalOpen(true);
     }
   }, []);
@@ -80,7 +90,15 @@ const App: React.FC = () => {
       localStorage.setItem('gemini_api_key', tempApiKey.trim());
       setApiKey(tempApiKey.trim());
       setIsKeyModalOpen(false);
+      setIsEnvKey(false);
     }
+  };
+
+  const handleClearKey = () => {
+    localStorage.removeItem('gemini_api_key');
+    setApiKey('');
+    setTempApiKey('');
+    setIsEnvKey(false);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,13 +194,22 @@ const App: React.FC = () => {
                 value={tempApiKey}
                 onChange={(e) => setTempApiKey(e.target.value)}
               />
-              <button 
-                onClick={handleSaveKey}
-                disabled={!tempApiKey}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Save Securely & Continue
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleSaveKey}
+                  disabled={!tempApiKey}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save Key
+                </button>
+                 <button 
+                  onClick={handleClearKey}
+                  className="px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2.5 rounded-lg transition-all"
+                  title="Clear Key"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
             
             <div className="mt-4 pt-4 border-t border-slate-700/50 text-center">
@@ -216,11 +243,17 @@ const App: React.FC = () => {
               onClick={() => setIsKeyModalOpen(true)}
               className={`flex items-center gap-1.5 hover:text-indigo-400 transition-colors ${!apiKey ? 'text-amber-500 animate-pulse' : ''}`}
              >
-                {apiKey ? <Settings size={14} /> : <AlertTriangle size={14} />}
-                <span>{apiKey ? 'Config' : 'Setup API Key'}</span>
+                {apiKey ? (
+                  isEnvKey ? <ShieldCheck size={14} className="text-emerald-400" /> : <Settings size={14} />
+                ) : <AlertTriangle size={14} />}
+                <span>
+                  {apiKey 
+                    ? (isEnvKey ? 'System Key Active' : 'Config') 
+                    : 'Setup API Key'}
+                </span>
              </button>
              <div className="flex items-center gap-1.5">
-                <ShieldCheck size={14} />
+                <Users size={14} />
                 <span>Admin: J. Smith</span>
              </div>
           </div>

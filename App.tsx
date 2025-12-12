@@ -22,7 +22,10 @@ import {
   Briefcase,
   AlertOctagon,
   Zap,
-  Ticket
+  Ticket,
+  Key,
+  X,
+  Settings
 } from 'lucide-react';
 import { analyzeTransactionLogs } from './services/geminiService';
 import { AnalysisResult, TestScenario } from './types';
@@ -35,12 +38,29 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<string>('');
   const [transferId, setTransferId] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null); // State for image preview
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null); 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isScenarioMenuOpen, setIsScenarioMenuOpen] = useState(false);
   const [activeScenario, setActiveScenario] = useState<TestScenario | null>(null);
+  
+  // API Key State
+  const [apiKey, setApiKey] = useState('');
+  const [tempApiKey, setTempApiKey] = useState('');
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+
+  // Load API Key on Mount
+  useEffect(() => {
+    const storedKey = localStorage.getItem('gemini_api_key');
+    if (storedKey) {
+      setApiKey(storedKey);
+      setTempApiKey(storedKey);
+    } else {
+      // Open modal if no key is found
+      setIsKeyModalOpen(true);
+    }
+  }, []);
 
   // Effect to generate and cleanup image preview URL
   useEffect(() => {
@@ -54,6 +74,14 @@ const App: React.FC = () => {
     // Cleanup memory when image changes or component unmounts
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedImage]);
+
+  const handleSaveKey = () => {
+    if (tempApiKey.trim()) {
+      localStorage.setItem('gemini_api_key', tempApiKey.trim());
+      setApiKey(tempApiKey.trim());
+      setIsKeyModalOpen(false);
+    }
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -80,6 +108,10 @@ const App: React.FC = () => {
   };
 
   const handleAnalyze = async () => {
+    if (!apiKey) {
+      setIsKeyModalOpen(true);
+      return;
+    }
     if (!logs.trim() || !transferId.trim()) {
       setError("Please provide both logs and a Transfer ID.");
       return;
@@ -89,7 +121,7 @@ const App: React.FC = () => {
     setResult(null);
 
     try {
-      const data = await analyzeTransactionLogs(logs, transferId, selectedImage);
+      const data = await analyzeTransactionLogs(apiKey, logs, transferId, selectedImage);
       setResult(data);
     } catch (err: any) {
       setError(err.message || "Failed to analyze logs");
@@ -108,8 +140,60 @@ const App: React.FC = () => {
   ] : [];
 
   return (
-    <div className="min-h-screen bg-[#0b1120] text-slate-200 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#0b1120] text-slate-200 flex flex-col font-sans relative">
       
+      {/* API Key Modal */}
+      {isKeyModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#1e293b] w-full max-w-md rounded-xl border border-slate-700 shadow-2xl p-6 relative">
+            <button 
+              onClick={() => setIsKeyModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-400">
+                <Key size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Gemini API Key</h3>
+                <p className="text-xs text-slate-400">Required to access Gemini 2.5 Flash</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-300 mb-4">
+              To perform forensic analysis, this app requires a Google Gemini API Key. 
+              It is stored locally in your browser and is never sent to our servers.
+            </p>
+
+            <div className="space-y-3">
+              <input 
+                type="password" 
+                placeholder="Paste your API key here (AIza...)" 
+                className="w-full bg-[#0b1120] border border-slate-600 rounded-lg px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                value={tempApiKey}
+                onChange={(e) => setTempApiKey(e.target.value)}
+              />
+              <button 
+                onClick={handleSaveKey}
+                disabled={!tempApiKey}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Securely & Continue
+              </button>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-700/50 text-center">
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-300 underline">
+                Get a free API Key from Google AI Studio
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. ENTERPRISE HEADER */}
       <header className="bg-[#0f172a] border-b border-slate-800 sticky top-0 z-50 shadow-md">
         <div className="max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between">
@@ -128,10 +212,13 @@ const App: React.FC = () => {
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 <span className="text-emerald-400">System Healthy</span>
              </div>
-             <div className="flex items-center gap-1.5">
-                <Globe size={14} />
-                <span>Global Clearing</span>
-             </div>
+             <button 
+              onClick={() => setIsKeyModalOpen(true)}
+              className={`flex items-center gap-1.5 hover:text-indigo-400 transition-colors ${!apiKey ? 'text-amber-500 animate-pulse' : ''}`}
+             >
+                {apiKey ? <Settings size={14} /> : <AlertTriangle size={14} />}
+                <span>{apiKey ? 'Config' : 'Setup API Key'}</span>
+             </button>
              <div className="flex items-center gap-1.5">
                 <ShieldCheck size={14} />
                 <span>Admin: J. Smith</span>

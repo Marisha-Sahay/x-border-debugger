@@ -1,8 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
     const reader = new FileReader();
@@ -51,10 +49,18 @@ const svgFileToPngBase64 = async (file: File): Promise<string> => {
 };
 
 export const analyzeTransactionLogs = async (
+  apiKey: string,
   logs: string, 
   transferId: string, 
   imageFile: File | null
 ): Promise<AnalysisResult> => {
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please configure it in settings.");
+  }
+
+  // Initialize the client with the user-provided key
+  const ai = new GoogleGenAI({ apiKey });
+  
   // Use 2.5 Flash for multimodal (Image + Text) capabilities
   const model = "gemini-2.5-flash";
 
@@ -164,4 +170,4 @@ export const analyzeTransactionLogs = async (
   return JSON.parse(text) as AnalysisResult;
 };
 
-export const MOCK_LOGS = `...`; // (Unused now, relying on scenarios)`;
+export const MOCK_LOGS = `...`; // (Unused now, relying on scenarios)

@@ -1,0 +1,5 @@
+{
+  "name": "X-Border Tx Debugger",
+  "description": "A forensic tool for Fintech developers to analyze cross-border payment logs, visualize the transaction path, and identify root causes of failures using Gemini.",
+  "requestFramePermissions": []
+}
